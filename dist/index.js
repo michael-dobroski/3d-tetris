@@ -87,6 +87,15 @@ for (let i = 0; i < 10; i++) {
     }
 }
 
+// starting seed for debugging
+for (let i = 0; i < 9; i++) {
+    for (let j = 0; j < 4; j++) {
+        boxes[coords(i, j)].material.color.setHex(0x00ffff);
+        boxes[coords(i, j)].material.transparent = false;
+        boxes[coords(i, j)].material.opacity = 1;
+    }
+}
+
 // create frame
 const frameMat = new THREE.MeshBasicMaterial({
     color: 0x808080
@@ -122,10 +131,18 @@ var x, y, pieceColor;
 var input = '';
 var lenTick = 50;
 var ticks = 0;
+var piecePosition = '';
+var linesCleared = 0;
+var score = 0;
+var scoringSystem = [];
+scoringSystem[0] = 40;
+scoringSystem[1] = 100;
+scoringSystem[2] = 300;
+scoringSystem[3] = 1200;
 function tick() {
     if (currPiece == null) {
-        currPiece = Math.floor(Math.random() * 7);
-        // currPiece = 0;
+        // currPiece = Math.floor(Math.random() * 7);
+        currPiece = 0;
         if (currPiece == 0) { // light blue piece
             setPiece(3, 19, 0x00ffff);
             setPiece(4, 19, 0x00ffff);
@@ -162,6 +179,7 @@ function tick() {
             setPiece(5, 18, 0xff0000);
             setPiece(6, 18, 0xff0000);
         }
+        piecePosition = 'A';
     } else {
         if (ticks == lenTick || input == "down") {
             var canMoveDown = true;
@@ -192,6 +210,43 @@ function tick() {
             else {
                 currSquares = [];
                 currPiece = null;
+
+                // check for full rows to eliminate and add points
+                var rowsDel = [];
+                for (var j = 0; j < 20; j++) {
+                    var elim = true;
+                    for (var i = 0; i < 10; i++) {
+                        if (boxes[coords(i, j)].material.transparent == true) {
+                            elim = false;
+                            break;
+                        }
+                    }
+                    if (elim) {
+                        for (var i = 0; i < 10; i++) {
+                            clearPiece(i, j);
+                        }
+                        rowsDel.push(j);
+                    }
+                }
+
+                // add points
+                if (rowsDel.length > 0) {
+                    var level = Math.floor(linesCleared / 10);
+                    linesCleared += rowsDel.length;
+                    score += scoringSystem[rowsDel.length - 1] * (level + 1);
+                    console.log(score); // display as 3D text
+                }
+                
+                // move rows down after elimination
+                for (var k = rowsDel.length - 1; k > -1; k--) { 
+                    for (var j = rowsDel[k]; j < 19; j++) {
+                        for (var i = 0; i < 10; i++) {
+                            if (boxes[coords(i, j + 1)].material.transparent == false) {
+                                movePieceDown(i, j + 1);
+                            }
+                        }
+                    }
+                }
             }
             ticks = 0;
             if (input == "down") {
@@ -253,29 +308,155 @@ function tick() {
                         newSet = [];
                     }
                 } else if (input == "rotate") {
-                    var newSquares = [];
+                    var canRotate = true;
+                    var newPiecePosition;
                     if (currPiece == 0) { // light blue piece
-                        // if (currSquares[0][0] == currSquares[1][0]) { // upright
-                        //     for (var k = 0; k < 4; k++) {
-                        //         x = currSquares[k][0];
-                        //         y = currSquares[k][1];
-                        //     }
-                        // } else { // laying down
-
-                        // }
+                        if (piecePosition == 'A') { // position A
+                            newSet.push([currSquares[0][0] + 2, currSquares[0][1] + 1]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1]]);
+                            newSet.push([currSquares[2][0], currSquares[2][1] - 1]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] - 2]);
+                            newPiecePosition = 'B';
+                        } else { // position B
+                            newSet.push([currSquares[0][0] - 2, currSquares[0][1] - 1]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1]]);
+                            newSet.push([currSquares[2][0], currSquares[2][1] + 1]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] + 2]);
+                            newPiecePosition = 'A';
+                        }
                     } else if (currPiece == 1) { // dark blue piece
-
+                        if (piecePosition == 'A') { // position A
+                            newSet.push([currSquares[0][0] + 2, currSquares[0][1]]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1] + 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] - 1]);
+                            newPiecePosition = 'B';
+                        } else if (piecePosition == 'B') { // position B
+                            newSet.push([currSquares[0][0], currSquares[0][1] - 2]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1] - 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] + 1]);
+                            newPiecePosition = 'C';
+                        } else if (piecePosition == 'C') { // position C
+                            newSet.push([currSquares[0][0] - 2, currSquares[0][1]]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1] - 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] + 1]);
+                            newPiecePosition = 'D';
+                        } else { // position D
+                            newSet.push([currSquares[0][0], currSquares[0][1] + 2]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1] + 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] - 1]);
+                            newPiecePosition = 'A';
+                        }
                     } else if (currPiece == 2) { // orange piece
-
-                    } else if (currPiece == 3) { // yellow piece
-
+                        if (piecePosition == 'A') { // position A
+                            newSet.push([currSquares[0][0], currSquares[0][1] - 2]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1] + 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] - 1]);
+                            newPiecePosition = 'B';
+                        } else if (piecePosition == 'B') { // position B
+                            newSet.push([currSquares[0][0] - 2, currSquares[0][1]]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1] - 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] + 1]);
+                            newPiecePosition = 'C';
+                        } else if (piecePosition == 'C') { // position C
+                            newSet.push([currSquares[0][0], currSquares[0][1] + 2]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1] - 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] + 1]);
+                            newPiecePosition = 'D';
+                        } else { // position D
+                            newSet.push([currSquares[0][0] + 2, currSquares[0][1]]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1] + 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] - 1]);
+                            newPiecePosition = 'A';
+                        }
+                    } else if (currPiece == 3) { // yellow piece; do nothing
+                        canRotate = false;
                     } else if (currPiece == 4) { // green piece
-
+                        if (piecePosition == 'A') { // position A
+                            newSet.push([currSquares[0][0] + 1, currSquares[0][1] - 1]);
+                            newSet.push([currSquares[1][0], currSquares[1][1] - 2]);
+                            newSet.push([currSquares[2][0] + 1, currSquares[2][1] + 1]);
+                            newSet.push([currSquares[3][0], currSquares[3][1]]);
+                            newPiecePosition = 'B';
+                        } else { // position B
+                            newSet.push([currSquares[0][0] - 1, currSquares[0][1] + 1]);
+                            newSet.push([currSquares[1][0], currSquares[1][1] + 2]);
+                            newSet.push([currSquares[2][0] - 1, currSquares[2][1] - 1]);
+                            newSet.push([currSquares[3][0], currSquares[3][1]]);
+                            newPiecePosition = 'A';
+                        }
                     } else if (currPiece == 5) { // purple piece
-
+                        if (piecePosition == 'A') { // position A
+                            newSet.push([currSquares[0][0], currSquares[0][1]]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1] - 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0], currSquares[3][1]]);
+                            newPiecePosition = 'B';
+                        } else if (piecePosition == 'B') { // position B
+                            newSet.push([currSquares[0][0] - 1, currSquares[0][1] - 1]);
+                            newSet.push([currSquares[1][0], currSquares[1][1]]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0], currSquares[3][1]]);
+                            newPiecePosition = 'C';
+                        } else if (piecePosition == 'C') { // position C
+                            newSet.push([currSquares[0][0], currSquares[0][1]]);
+                            newSet.push([currSquares[1][0], currSquares[1][1]]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] + 1]);
+                            newPiecePosition = 'D';
+                        } else { // position D
+                            newSet.push([currSquares[0][0] + 1, currSquares[0][1] + 1]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1] + 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] - 1]);
+                            newPiecePosition = 'A';
+                        }
                     } else if (currPiece == 6) { // red piece
-
+                        if (piecePosition == 'A') { // position A
+                            newSet.push([currSquares[0][0], currSquares[0][1] - 2]);
+                            newSet.push([currSquares[1][0] - 1, currSquares[1][1] - 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] - 1, currSquares[3][1] + 1]);
+                            newPiecePosition = 'B';
+                        } else { // position B
+                            newSet.push([currSquares[0][0], currSquares[0][1] + 2]);
+                            newSet.push([currSquares[1][0] + 1, currSquares[1][1] + 1]);
+                            newSet.push([currSquares[2][0], currSquares[2][1]]);
+                            newSet.push([currSquares[3][0] + 1, currSquares[3][1] - 1]);
+                            newPiecePosition = 'A';
+                        }
                     }
+                    if (canRotate) {
+                        for (var k = 0; k < 4; k++) { // check to see if there's room to rotate piece
+                            if (isPieceHere(newSet[k][0], newSet[k][1])) {
+                                canRotate = false;
+                            }
+                        }
+                    }
+                    if (canRotate) { // rotate piece to new coords
+                        piecePosition = newPiecePosition;
+                        for (var k = 0; k < 4; k++) {
+                            x = currSquares[k][0];
+                            y = currSquares[k][1];
+                            pieceColor = '0x' + boxes[coords(x, y)].material.color.getHex().toString(16); // returns color of piece in hex
+                            clearPiece(x, y);
+                        }
+                        currSquares = [];
+                        for (let k = 0; k < 4; k++) {
+                            x = newSet[k][0];
+                            y = newSet[k][1];
+                            setPiece(x, y, pieceColor);
+                            currSquares[k] = newSet[k];
+                        }
+                    }
+                    newSet = [];
                 }
                 input = '';
             }
@@ -297,8 +478,11 @@ document.addEventListener('keypress', (event) => {
     }
 }, false);
 
-// returns true if there's a piece there that's not part of the current piece
+// returns true if there's a piece there that's not part of the current piece or coords are out of bounds
 function isPieceHere(i, j) {
+    if (i < 0 || i > 9 || j < 0 || j > 19) { // out of bounds check
+        return true;
+    }
     var isCurrPiece = false;
     if (boxes[coords(i, j)].material.transparent == false) {
         for (var k = 0; k < 4; k++) {
@@ -321,6 +505,16 @@ function setPiece(i, j, color) {
     boxes[coords(i, j)].material.transparent = false;
     boxes[coords(i, j)].material.opacity = 1;
     currSquares.push([i, j]);
+}
+
+// moves a piece down a row
+function movePieceDown(i, j) {
+    var color;
+    color = '0x' + boxes[coords(i, j)].material.color.getHex().toString(16);
+    boxes[coords(i, j - 1)].material.color.setHex(color);
+    boxes[coords(i, j - 1)].material.transparent = false;
+    boxes[coords(i, j - 1)].material.opacity = 1;
+    clearPiece(i, j);
 }
 
 // removes a piece from the grid
