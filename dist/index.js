@@ -41,42 +41,46 @@ let skyboxGeo = new THREE.BoxGeometry( 1000, 1000, 1000 );
 let skybox = new THREE.Mesh( skyboxGeo, materialArray );
 scene.add( skybox );
 
-// addText('Welcome to my portfolio!', 10, 0, 0, 0, 0, 25, -200);
-// addText('Feel free to take a look around.', 10, 0, 0, 0, 0, 0, -200);
-// addText('Thanks, enjoy!', 10, 0, 0, 0, 0, -25, -200);
+let scoreMesh, levelMesh;
+var level = 0;
+var currPiece = null;
+var currSquares = [];
+var newSet = [];
+var x, y, pieceColor;
+var input = '';
+var lenTick = 50;
+var ticks = 0;
+var piecePosition = '';
+var linesCleared = 0;
+var score = 0;
+var scoringSystem = [];
+scoringSystem[0] = 40;
+scoringSystem[1] = 100;
+scoringSystem[2] = 300;
+scoringSystem[3] = 1200;
+let group = new THREE.Group();
+scene.add(group);
+var pieces = [0,1,2,3,4,5,6];
+var piece7bag = shuffle(pieces).concat(shuffle(pieces));
+var hold = -1;
+var gameOver = false;
 
-// function addText(txt, fontSize, rotX, rotY, rotZ, x, y, z) {
-//     const loader = new FontLoader();
-//     loader.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
-
-//         const textGeo = new THREE.TextGeometry( txt, {
-//             font: font,
-//             size: fontSize,
-//             height: 1,
-//             curveSegments: 12,
-//         } );
-//         textGeo.rotateX(rotX);
-//         textGeo.rotateY(rotY);
-//         textGeo.rotateZ(rotZ);
-//         const material = new THREE.MeshBasicMaterial({
-//             color: 0xffffff
-//         });
-//         const mesh = new THREE.Mesh(textGeo, material);
-//         scene.add(mesh);
-//         mesh.geometry.center();
-//         mesh.position.set(x, y, z);
-
-//     } );
-// }
+// add static 3d text content
+addStaticText('SCORE', 0.05, 0, 0, 0, 0.4, 0.45, 0, 0xffffff);
+addStaticText('LEVEL', 0.05, 0, 0, 0, 0.388, 0.25, 0, 0xffffff);
+addStaticText('HOLD', 0.05, 0, 0, 0, 0.375, -0.232, 0, 0xffffff);
+addStaticText('NEXT', 0.05, 0, 0, 0, -0.37, 0.45, 0, 0xffffff);
+createScore();
+createLevel();
 
 // create grid
 const boxes = {};
-var boxGeo, boxMat, boxMesh, key;
+var boxGeo, boxMat, boxMesh;
 for (let i = 0; i < 10; i++) {
     for (let j = 0; j < 20; j++) {
         boxGeo = new THREE.BoxGeometry(.05,.05,.05);
         boxMat = new THREE.MeshBasicMaterial({
-            color: 0x0000ff//'#'+Math.floor(Math.random()*16777215).toString(16)
+            color: 0x000000//'#'+Math.floor(Math.random()*16777215).toString(16)
         });
         boxMesh = new THREE.Mesh(boxGeo, boxMat);
         scene.add(boxMesh);
@@ -87,16 +91,52 @@ for (let i = 0; i < 10; i++) {
     }
 }
 
-// starting seed for debugging
-for (let i = 0; i < 9; i++) {
-    for (let j = 0; j < 4; j++) {
-        boxes[coords(i, j)].material.color.setHex(0x00ffff);
-        boxes[coords(i, j)].material.transparent = false;
-        boxes[coords(i, j)].material.opacity = 1;
+// create next pieces grid
+const nextBoxes = {};
+var boxNextGeo, boxNextMat, boxNextMesh, spacing = 0;
+for (let j = 0; j < 12; j++) {
+    for (let i = 0; i < 4; i++) {
+        boxNextGeo = new THREE.BoxGeometry(.03,.03,.03);
+        boxNextMat = new THREE.MeshBasicMaterial({
+            color: 0x000000
+        });
+        boxNextMesh = new THREE.Mesh(boxNextGeo, boxNextMat);
+        scene.add(boxNextMesh);
+        boxNextMesh.position.set(i * .03 - .42, j * .03 - .33 + spacing, 0);
+        nextBoxes[coords(i,j)] = boxNextMesh;
+    }
+    if (j % 2 != 0 && j != 0) {
+        spacing += 0.064;
     }
 }
 
-// create frame
+// create hold pieces grid
+const holdBoxes = {};
+var boxHoldGeo, boxHoldMat, boxHoldMesh;
+for (let j = 0; j < 2; j++) {
+    for (let i = 0; i < 4; i++) {
+        boxHoldGeo = new THREE.BoxGeometry(.03,.03,.03);
+        boxHoldMat = new THREE.MeshBasicMaterial({
+            color: 0x000000
+        });
+        boxHoldMesh = new THREE.Mesh(boxHoldGeo, boxHoldMat);
+        scene.add(boxHoldMesh);
+        boxHoldMesh.position.set(i * .03 + .33, j * .03 - .4, 0);
+        holdBoxes[coords(i,j)] = boxHoldMesh;
+    }
+}
+refreshHoldPiece();
+
+// starting seed for debugging
+// for (let i = 0; i < 9; i++) {
+//     for (let j = 0; j < 12; j++) {
+//         boxes[coords(i, j)].material.color.setHex(0x00ffff);
+//         boxes[coords(i, j)].material.transparent = false;
+//         boxes[coords(i, j)].material.opacity = 1;
+//     }
+// }
+
+// create grid frame
 const frameMat = new THREE.MeshBasicMaterial({
     color: 0x808080
 });
@@ -117,32 +157,61 @@ const bottomMesh = new THREE.Mesh(bottomFrame, frameMat);
 scene.add(bottomMesh);
 bottomMesh.position.set(0,-.5,0);
 
+// create hold frame
+const leftFrameHold = new THREE.BoxGeometry(.001, .17, .025);
+const leftMeshHold = new THREE.Mesh(leftFrameHold, frameMat);
+scene.add(leftMeshHold);
+leftMeshHold.position.set(.29,-.385,0);
+const rightFrameHold = new THREE.BoxGeometry(.001, .17, .025);
+const rightMeshHold = new THREE.Mesh(rightFrameHold, frameMat);
+scene.add(rightMeshHold);
+rightMeshHold.position.set(.46,-.385,0);
+const topFrameHold = new THREE.BoxGeometry(.17, .001, .025);
+const topMeshHold = new THREE.Mesh(topFrameHold, frameMat);
+scene.add(topMeshHold);
+topMeshHold.position.set(.375,-.3,0);
+const bottomFrameHold = new THREE.BoxGeometry(.17, .001, .025);
+const bottomMeshHold = new THREE.Mesh(bottomFrameHold, frameMat);
+scene.add(bottomMeshHold);
+bottomMeshHold.position.set(.375,-.47,0);
+
+// create next frame
+const leftFrameNext = new THREE.BoxGeometry(.001, .75, .025);
+const leftMeshNext = new THREE.Mesh(leftFrameNext, frameMat);
+scene.add(leftMeshNext);
+leftMeshNext.position.set(-.29,0,0);
+const rightFrameNext = new THREE.BoxGeometry(.001, .75, .025);
+const rightMeshNext = new THREE.Mesh(rightFrameNext, frameMat);
+scene.add(rightMeshNext);
+rightMeshNext.position.set(-.46,0,0);
+const topFrameNext = new THREE.BoxGeometry(.17, .001, .025);
+const topMeshNext = new THREE.Mesh(topFrameNext, frameMat);
+scene.add(topMeshNext);
+topMeshNext.position.set(-.375,.375,0);
+const bottomFrameNext = new THREE.BoxGeometry(.17, .001, .025);
+const bottomMeshNext = new THREE.Mesh(bottomFrameNext, frameMat);
+scene.add(bottomMeshNext);
+bottomMeshNext.position.set(-.375,-.375,0);
+
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
-    tick();
+    if (!gameOver) {
+        tick();
+    }
 }
 
-var currPiece = null;
-var currSquares = [];
-var newSet = [];
-var x, y, pieceColor;
-var input = '';
-var lenTick = 50;
-var ticks = 0;
-var piecePosition = '';
-var linesCleared = 0;
-var score = 0;
-var scoringSystem = [];
-scoringSystem[0] = 40;
-scoringSystem[1] = 100;
-scoringSystem[2] = 300;
-scoringSystem[3] = 1200;
+var newPiece = true;
 function tick() {
-    if (currPiece == null) {
-        // currPiece = Math.floor(Math.random() * 7);
-        currPiece = 0;
+    if (newPiece) {
+        if (currPiece == null) {
+            if (piece7bag.length == 7) {
+                piece7bag = shuffle(pieces).concat(piece7bag);
+            }
+            currPiece = piece7bag.pop();
+            refreshNextPieces();
+        }
         if (currPiece == 0) { // light blue piece
             setPiece(3, 19, 0x00ffff);
             setPiece(4, 19, 0x00ffff);
@@ -179,7 +248,11 @@ function tick() {
             setPiece(5, 18, 0xff0000);
             setPiece(6, 18, 0xff0000);
         }
+        if (gameOver) {
+            addStaticText("GAME OVER", 0.1, 0, 0, 0, 0, 0, 0.1, 0xff0000);
+        }
         piecePosition = 'A';
+        newPiece = false;
     } else {
         if (ticks == lenTick || input == "down") {
             var canMoveDown = true;
@@ -210,6 +283,7 @@ function tick() {
             else {
                 currSquares = [];
                 currPiece = null;
+                newPiece = true;
 
                 // check for full rows to eliminate and add points
                 var rowsDel = [];
@@ -231,10 +305,11 @@ function tick() {
 
                 // add points
                 if (rowsDel.length > 0) {
-                    var level = Math.floor(linesCleared / 10);
-                    linesCleared += rowsDel.length;
                     score += scoringSystem[rowsDel.length - 1] * (level + 1);
-                    console.log(score); // display as 3D text
+                    linesCleared += rowsDel.length;
+                    level = Math.floor(linesCleared / 10);
+                    refreshScore();
+                    refreshLevel();
                 }
                 
                 // move rows down after elimination
@@ -457,6 +532,25 @@ function tick() {
                         }
                     }
                     newSet = [];
+                } else if (input == 'hold') {
+                    if (hold == -1) {
+                        hold = currPiece;
+                        currPiece = null;
+                        for (let k = 0; k < 4; k++) {
+                            clearPiece(currSquares[k][0], currSquares[k][1]);
+                        }
+                        currSquares = [];
+                    } else {
+                        let newPiece = hold;
+                        hold = currPiece;
+                        currPiece = newPiece;
+                        for (let k = 0; k < 4; k++) {
+                            clearPiece(currSquares[k][0], currSquares[k][1]);
+                        }
+                        currSquares = [];
+                    }
+                    newPiece = true;
+                    refreshHoldPiece();
                 }
                 input = '';
             }
@@ -475,6 +569,8 @@ document.addEventListener('keypress', (event) => {
         input = "right";
     } else if (name == 'w') {
         input = "rotate";
+    } else if (name == 'f') {
+        input = "hold";
     }
 }, false);
 
@@ -501,6 +597,9 @@ function isPieceHere(i, j) {
 
 // sets a piece
 function setPiece(i, j, color) {
+    if (boxes[coords(i, j)].material.transparent == false) {
+        gameOver = true;
+    }
     boxes[coords(i, j)].material.color.setHex(color);
     boxes[coords(i, j)].material.transparent = false;
     boxes[coords(i, j)].material.opacity = 1;
@@ -526,6 +625,289 @@ function clearPiece(i, j) {
 // takes ints i & j and returns corresponding key to boxes dict
 function coords(i, j) {
     return i.toString() + ',' + j.toString();
+}
+
+function refreshScore() {
+    group.remove(scoreMesh);
+    createScore();
+}
+
+function createScore() {
+    const loader = new FontLoader();
+    loader.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
+
+        const textGeo = new THREE.TextGeometry( score.toString(), {
+            font: font,
+            size: 0.05,
+            height: 0.01,
+            curveSegments: 12,
+        } );
+        // textGeo.rotateX(rotX);
+        // textGeo.rotateY(rotY);
+        // textGeo.rotateZ(rotZ);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff
+        });
+        scoreMesh = new THREE.Mesh(textGeo, material);
+        group.add(scoreMesh);
+        scoreMesh.position.set(0.283, 0.345, 0);
+
+    } );
+}
+
+function refreshLevel() {
+    group.remove(levelMesh);
+    createLevel();
+}
+
+function createLevel() {
+    const loader = new FontLoader();
+    loader.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
+
+        const textGeo = new THREE.TextGeometry( level.toString(), {
+            font: font,
+            size: 0.05,
+            height: 0.01,
+            curveSegments: 12,
+        } );
+        // textGeo.rotateX(rotX);
+        // textGeo.rotateY(rotY);
+        // textGeo.rotateZ(rotZ);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff
+        });
+        levelMesh = new THREE.Mesh(textGeo, material);
+        group.add(levelMesh);
+        levelMesh.position.set(0.283, 0.145, 0);
+
+    } );
+}
+
+function addStaticText(txt, fontSize, rotX, rotY, rotZ, x, y, z, fooColor) {
+    const loader = new FontLoader();
+    loader.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
+
+        const textGeo = new THREE.TextGeometry( txt, {
+            font: font,
+            size: fontSize,
+            height: 0.01,
+            curveSegments: 12,
+        } );
+        textGeo.rotateX(rotX);
+        textGeo.rotateY(rotY);
+        textGeo.rotateZ(rotZ);
+        const material = new THREE.MeshBasicMaterial({
+            color: fooColor
+        });
+        const mesh = new THREE.Mesh(textGeo, material);
+        scene.add(mesh);
+        mesh.geometry.center();
+        mesh.position.set(x, y, z);
+
+    } );
+}
+
+function shuffle(array) {
+    let currentIndex = array.length, randomIndex;
+
+    // While there remain elements to shuffle.
+    while (currentIndex != 0) {
+
+        // Pick a remaining element.
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+
+        // And swap it with the current element.
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+    }
+
+    return array;
+}
+
+function refreshNextPieces() {
+    let nextPieces = [piece7bag.at(-1), piece7bag.at(-2), piece7bag.at(-3), piece7bag.at(-4), piece7bag.at(-5), piece7bag.at(-6)];
+    let currNext, currColor;
+    for (let y = 0; y < 12; y += 2) {
+        currNext = nextPieces.pop();
+        if (currNext == 0) {
+            currColor = 0x00ffff;
+            changeNextPiece(0, y, currColor);
+            changeNextPiece(1, y, currColor);
+            changeNextPiece(2, y, currColor);
+            changeNextPiece(3, y, currColor);
+            clearNextPiece(0, y + 1);
+            clearNextPiece(1, y + 1);
+            clearNextPiece(2, y + 1);
+            clearNextPiece(3, y + 1);
+        } else if (currNext == 1) {
+            currColor = 0x00008b;
+            changeNextPiece(0, y, currColor);
+            changeNextPiece(1, y, currColor);
+            changeNextPiece(2, y, currColor);
+            clearNextPiece(3, y);
+            changeNextPiece(0, y + 1, currColor);
+            clearNextPiece(1, y + 1);
+            clearNextPiece(2, y + 1);
+            clearNextPiece(3, y + 1);
+        } else if (currNext == 2) {
+            currColor = 0xffa500;
+            clearNextPiece(0, y);
+            changeNextPiece(1, y, currColor);
+            changeNextPiece(2, y, currColor);
+            changeNextPiece(3, y, currColor);
+            changeNextPiece(3, y + 1, currColor);
+            clearNextPiece(0, y + 1);
+            clearNextPiece(1, y + 1);
+            clearNextPiece(2, y + 1);
+        } else if (currNext == 3) {
+            currColor = 0xffff00;
+            changeNextPiece(1, y, currColor);
+            changeNextPiece(1, y + 1, currColor);
+            changeNextPiece(2, y, currColor);
+            changeNextPiece(2, y + 1, currColor);
+            clearNextPiece(0, y + 1);
+            clearNextPiece(3, y + 1);
+            clearNextPiece(0, y);
+            clearNextPiece(3, y);
+        } else if (currNext == 4) {
+            currColor = 0x90ee90;
+            changeNextPiece(0, y, currColor);
+            changeNextPiece(1, y, currColor);
+            changeNextPiece(1, y + 1, currColor);
+            changeNextPiece(2, y + 1, currColor);
+            clearNextPiece(0, y + 1);
+            clearNextPiece(2, y);
+            clearNextPiece(3, y + 1);
+            clearNextPiece(3, y);
+        } else if (currNext == 5) {
+            currColor = 0xa020f0;
+            changeNextPiece(0, y, currColor);
+            changeNextPiece(1, y, currColor);
+            changeNextPiece(2, y, currColor);
+            changeNextPiece(1, y + 1, currColor);
+            clearNextPiece(0, y + 1);
+            clearNextPiece(3, y);
+            clearNextPiece(2, y + 1);
+            clearNextPiece(3, y + 1);
+        } else {
+            currColor = 0xff0000;
+            changeNextPiece(1, y + 1, currColor);
+            changeNextPiece(2, y + 1, currColor);
+            changeNextPiece(2, y, currColor);
+            changeNextPiece(3, y, currColor);
+            clearNextPiece(0, y);
+            clearNextPiece(1, y);
+            clearNextPiece(0, y + 1);
+            clearNextPiece(3, y + 1);
+        }
+    }
+}
+
+function changeNextPiece(i, j, color) {
+    nextBoxes[coords(i, j)].material.color.setHex(color);
+    nextBoxes[coords(i, j)].material.transparent = false;
+    nextBoxes[coords(i, j)].material.opacity = 1;
+}
+
+function clearNextPiece(i, j) {
+    nextBoxes[coords(i, j)].material.transparent = true;
+    nextBoxes[coords(i, j)].material.opacity = 0;
+}
+
+function refreshHoldPiece() {
+    let currColor;
+    if (hold == -1) {
+        clearHoldPiece(0, 0);
+        clearHoldPiece(1, 0);
+        clearHoldPiece(2, 0);
+        clearHoldPiece(3, 0);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(1, 1);
+        clearHoldPiece(2, 1);
+        clearHoldPiece(3, 1);
+    }
+    else if (hold == 0) {
+        currColor = 0x00ffff;
+        changeHoldPiece(0, 0, currColor);
+        changeHoldPiece(1, 0, currColor);
+        changeHoldPiece(2, 0, currColor);
+        changeHoldPiece(3, 0, currColor);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(1, 1);
+        clearHoldPiece(2, 1);
+        clearHoldPiece(3, 1);
+    } else if (hold == 1) {
+        currColor = 0x00008b;
+        changeHoldPiece(0, 0, currColor);
+        changeHoldPiece(1, 0, currColor);
+        changeHoldPiece(2, 0, currColor);
+        clearHoldPiece(3, 0);
+        changeHoldPiece(0, 1, currColor);
+        clearHoldPiece(1, 1);
+        clearHoldPiece(2, 1);
+        clearHoldPiece(3, 1);
+    } else if (hold == 2) {
+        currColor = 0xffa500;
+        clearHoldPiece(0, 0);
+        changeHoldPiece(1, 0, currColor);
+        changeHoldPiece(2, 0, currColor);
+        changeHoldPiece(3, 0, currColor);
+        changeHoldPiece(3, 1, currColor);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(1, 1);
+        clearHoldPiece(2, 1);
+    } else if (hold == 3) {
+        currColor = 0xffff00;
+        changeHoldPiece(1, 0, currColor);
+        changeHoldPiece(1, 1, currColor);
+        changeHoldPiece(2, 0, currColor);
+        changeHoldPiece(2, 1, currColor);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(3, 1);
+        clearHoldPiece(0, 0);
+        clearHoldPiece(3, 0);
+    } else if (hold == 4) {
+        currColor = 0x90ee90;
+        changeHoldPiece(0, 0, currColor);
+        changeHoldPiece(1, 0, currColor);
+        changeHoldPiece(1, 1, currColor);
+        changeHoldPiece(2, 1, currColor);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(2, 0);
+        clearHoldPiece(3, 1);
+        clearHoldPiece(3, 0);
+    } else if (hold == 5) {
+        currColor = 0xa020f0;
+        changeHoldPiece(0, 0, currColor);
+        changeHoldPiece(1, 0, currColor);
+        changeHoldPiece(2, 0, currColor);
+        changeHoldPiece(1, 1, currColor);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(3, 0);
+        clearHoldPiece(2, 1);
+        clearHoldPiece(3, 1);
+    } else {
+        currColor = 0xff0000;
+        changeHoldPiece(1, 1, currColor);
+        changeHoldPiece(2, 1, currColor);
+        changeHoldPiece(2, 0, currColor);
+        changeHoldPiece(3, 0, currColor);
+        clearHoldPiece(0, 0);
+        clearHoldPiece(1, 0);
+        clearHoldPiece(0, 1);
+        clearHoldPiece(3, 1);
+    }
+}
+
+function changeHoldPiece(i, j, color) {
+    holdBoxes[coords(i, j)].material.color.setHex(color);
+    holdBoxes[coords(i, j)].material.transparent = false;
+    holdBoxes[coords(i, j)].material.opacity = 1;
+}
+
+function clearHoldPiece(i, j) {
+    holdBoxes[coords(i, j)].material.transparent = true;
+    holdBoxes[coords(i, j)].material.opacity = 0;
 }
 
 animate();
