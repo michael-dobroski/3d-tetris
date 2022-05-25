@@ -70,6 +70,14 @@ addStaticText('SCORE', 0.05, 0, 0, 0, 0.4, 0.45, 0, 0xffffff);
 addStaticText('LEVEL', 0.05, 0, 0, 0, 0.388, 0.25, 0, 0xffffff);
 addStaticText('HOLD', 0.05, 0, 0, 0, 0.375, -0.232, 0, 0xffffff);
 addStaticText('NEXT', 0.05, 0, 0, 0, -0.37, 0.45, 0, 0xffffff);
+addStaticText('3D TETRIS', 0.14, 0, 0, 0, 0, 0.63, 0, 0xffffff);
+addStaticText('CONTROLS', 0.04, 0, 0, 0, 0, -0.555, 0, 0xffffff);
+addStaticText("'A' - left", 0.03, 0, 0, 0, -0.12, -0.62, 0, 0xffffff);
+addStaticText("'D' - right", 0.03, 0, 0, 0, -0.12, -0.67, 0, 0xffffff);
+addStaticText("'S' - down", 0.03, 0, 0, 0, -0.12, -0.72, 0, 0xffffff);
+addStaticText("'W' - rotate", 0.03, 0, 0, 0, 0.12, -0.62, 0, 0xffffff);
+addStaticText("'F' - hold", 0.03, 0, 0, 0, 0.12, -0.67, 0, 0xffffff);
+addStaticText("'R' - reset", 0.03, 0, 0, 0, 0.12, -0.72, 0, 0xffffff);
 createScore();
 createLevel();
 
@@ -90,6 +98,51 @@ for (let i = 0; i < 10; i++) {
         boxes[coords(i,j)] = boxMesh;
     }
 }
+
+// backdrop for game over screen, hide for now
+var gobGeo, gobMat, gobMesh;
+gobGeo = new THREE.BoxGeometry(1,.5,.001);
+gobMat = new THREE.MeshBasicMaterial({
+    color: 0x000000
+});
+gobMesh = new THREE.Mesh(gobGeo, gobMat);
+scene.add(gobMesh);
+gobMesh.position.set(0, 0, 0.05);
+gobMesh.material.transparent = true;
+gobMesh.material.opacity = 0;
+var gameOverMesh, resetMesh;
+const loader1 = new FontLoader();
+loader1.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
+
+    const gameOverGeo = new THREE.TextGeometry( "GAME OVER", {
+        font: font,
+        size: 0.1,
+        height: 0.01,
+        curveSegments: 12,
+    } );
+    const resetGeo = new THREE.TextGeometry( "Press 'R' to reset", {
+        font: font,
+        size: 0.05,
+        height: 0.01,
+        curveSegments: 12,
+    } );
+    const material = new THREE.MeshBasicMaterial({
+        color: 0xff0000
+    });
+    gameOverMesh = new THREE.Mesh(gameOverGeo, material);
+    resetMesh = new THREE.Mesh(resetGeo, material);
+    group.add(gameOverMesh);
+    group.add(resetMesh);
+    gameOverMesh.geometry.center();
+    resetMesh.geometry.center();
+    gameOverMesh.position.set(0, 0.05, 0.1);
+    resetMesh.position.set(0, -0.07, 0.1);
+    gameOverMesh.material.transparent = true;
+    gameOverMesh.material.opacity = 0;
+    resetMesh.material.transparent = true;
+    resetMesh.material.opacity = 0;
+
+} );
 
 // create next pieces grid
 const nextBoxes = {};
@@ -249,7 +302,14 @@ function tick() {
             setPiece(6, 18, 0xff0000);
         }
         if (gameOver) {
-            addStaticText("GAME OVER", 0.1, 0, 0, 0, 0, 0, 0.1, 0xff0000);
+            gobMesh.material.transparent = false;
+            gobMesh.material.opacity = 1;
+            loader1.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
+                gameOverMesh.material.transparent = false;
+                gameOverMesh.material.opacity = 1;
+                resetMesh.material.transparent = false;
+                resetMesh.material.opacity = 1;
+            } );
         }
         piecePosition = 'A';
         newPiece = false;
@@ -571,8 +631,45 @@ document.addEventListener('keypress', (event) => {
         input = "rotate";
     } else if (name == 'f') {
         input = "hold";
+    } else if (name == 'r') {
+        reset();
     }
 }, false);
+
+function reset() {
+
+    // hide game over screen
+    gobMesh.material.transparent = true;
+    gobMesh.material.opacity = 0;
+    loader1.load( 'https://unpkg.com/three@0.120.1/examples/fonts/helvetiker_regular.typeface.json' , function ( font ) {
+        gameOverMesh.material.transparent = true;
+        gameOverMesh.material.opacity = 0;
+        resetMesh.material.transparent = true;
+        resetMesh.material.opacity = 0;
+    } );
+
+    // reset vars
+    level = 0;
+    currPiece = null;
+    currSquares = [];
+    input = '';
+    ticks = 0;
+    piecePosition = '';
+    linesCleared = 0;
+    score = 0;
+    piece7bag = shuffle(pieces).concat(shuffle(pieces));
+    hold = -1;
+    gameOver = false;
+    newPiece = true;
+
+    // clear board
+    for (let i = 0; i < 10; i++) {
+        for (let j = 0; j < 20; j++) {
+            clearPiece(i, j);
+        }
+    }
+
+}
 
 // returns true if there's a piece there that's not part of the current piece or coords are out of bounds
 function isPieceHere(i, j) {
