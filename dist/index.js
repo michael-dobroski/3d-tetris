@@ -64,6 +64,7 @@ var pieces = [0,1,2,3,4,5,6];
 var piece7bag = shuffle(pieces).concat(shuffle(pieces));
 var hold = -1;
 var gameOver = false;
+var paused = false;
 
 // add static 3d text content
 addStaticText('SCORE', 0.05, 0, 0, 0, 0.4, 0.45, 0, 0xffffff);
@@ -250,7 +251,7 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
-    if (!gameOver) {
+    if (!gameOver && !paused) {
         tick();
     }
 }
@@ -633,6 +634,8 @@ document.addEventListener('keypress', (event) => {
         input = "hold";
     } else if (name == 'r') {
         reset();
+    } else if (name == 'p') {
+        paused = paused ? !true : true
     }
 }, false);
 
