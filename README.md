@@ -5,3 +5,5 @@ It was built over the course of four days in May.
 
 ## How to Play
 The game is deployed on GitHub pages and can be accessed by the following link ...
+
+https://michael-dobroski.github.io/3d-tetris/
